@@ -6,9 +6,22 @@ from typing import Optional
 class Settings(BaseSettings):
     """Application settings."""
 
+    # LLM Provider (openai, deepseek, or groq)
+    llm_provider: str = "openai"
+
     # OpenAI
-    openai_api_key: str
+    openai_api_key: Optional[str] = None
     openai_model: str = "gpt-4o"
+
+    # DeepSeek
+    deepseek_api_key: Optional[str] = None
+    deepseek_model: str = "deepseek-chat"
+    deepseek_base_url: str = "https://api.deepseek.com"
+
+    # Groq
+    groq_api_key: Optional[str] = None
+    groq_model: str = "openai/gpt-oss-20b"  # or llama-3.1-70b-versatile
+    groq_base_url: str = "https://api.groq.com/openai/v1"
 
     # ChromaDB
     chroma_persist_dir: str = "./chroma_db"

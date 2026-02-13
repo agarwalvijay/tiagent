@@ -99,6 +99,9 @@ async def chat(request: ChatRequest):
         response_text = result["response"]
         tool_executions = result.get("tool_executions", [])
     except Exception as e:
+        import traceback
+        print(f"[ERROR] Agent query failed:")
+        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
 
     # Update session history

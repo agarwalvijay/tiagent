@@ -540,11 +540,30 @@ class SemiconductorAgent:
 
     def __init__(self):
         """Initialize the agent."""
-        self.llm = ChatOpenAI(
-            model=settings.openai_model,
-            temperature=0.1,
-            api_key=settings.openai_api_key
-        )
+        # Initialize LLM based on provider
+        if settings.llm_provider == "groq":
+            self.llm = ChatOpenAI(
+                model=settings.groq_model,
+                temperature=0.1,
+                api_key=settings.groq_api_key,
+                base_url=settings.groq_base_url
+            )
+            print(f"[Agent] Using Groq model: {settings.groq_model}")
+        elif settings.llm_provider == "deepseek":
+            self.llm = ChatOpenAI(
+                model=settings.deepseek_model,
+                temperature=0.1,
+                api_key=settings.deepseek_api_key,
+                base_url=settings.deepseek_base_url
+            )
+            print(f"[Agent] Using DeepSeek model: {settings.deepseek_model}")
+        else:
+            self.llm = ChatOpenAI(
+                model=settings.openai_model,
+                temperature=0.1,
+                api_key=settings.openai_api_key
+            )
+            print(f"[Agent] Using OpenAI model: {settings.openai_model}")
 
         # Bind tools to LLM
         self.tools = [
@@ -811,14 +830,22 @@ class SemiconductorAgent:
 
         # Otherwise, generate response from tool results
         messages = state["messages"]
+
+        # Add explicit instruction not to call tools (especially for Groq)
+        no_tools_instruction = ""
+        if settings.llm_provider == "groq":
+            no_tools_instruction = "\n\n**CRITICAL: DO NOT CALL ANY TOOLS. You already have all the information you need from the tool results above. Just write the final response.**\n"
+
         system_message = SystemMessage(content=SYSTEM_PROMPT + """
 
-**NOW GENERATING FINAL RESPONSE:**
+**NOW GENERATING FINAL RESPONSE:**""" + no_tools_instruction + """
 - Use ONLY information from the tool results above
 - **CRITICAL: If a tool result includes a comparison table, you MUST include that exact table in your response**
 - **PRESERVE ALL TABLES**: Copy comparison tables directly from tool results (competitor_kill_sheet, compare_parts, etc.)
 - **Table format**: Use markdown table format exactly as provided by the tools
-- **Cite sources for ALL numeric specs**: Format as `[value] ([section name])`
+- **DO NOT mention tool names or internal processes** (never say "from competitor_kill_sheet output", "from tool results", etc.)
+- **Present information naturally** as if you're a TI semiconductor expert providing direct recommendations
+- **Cite sources for technical specs only when from datasheets**: Format as `[value] ([datasheet section])`
 - If source section missing: "Not found in retrieved datasheet sections"
 - **If recommending 2+ chips**: Include tradeoff comparison (power, interfaces, package, limitations)
 - Format tradeoffs as bullet points
@@ -828,17 +855,26 @@ class SemiconductorAgent:
   3. Add competitive advantages/kill sheet points
   4. Include TCO/narrative analysis if provided
   5. End with migration recommendations if relevant
-- Be helpful and concise
+- Be helpful, concise, and professional - speak directly to the user, not about your internal processes
 """)
 
         messages_with_system = [system_message] + list(messages)
 
-        response = self.llm.invoke(messages_with_system)
+        try:
+            # For final response, use LLM without tools to prevent unwanted tool calls
+            # Groq models aggressively try to call tools even in final response phase
+            response = self.llm.invoke(messages_with_system)
 
-        return {
-            "final_response": response.content,
-            "messages": [response]
-        }
+            print(f"[DEBUG] Final response generated, length: {len(response.content)}")
+            return {
+                "final_response": response.content,
+                "messages": [response]
+            }
+        except Exception as e:
+            print(f"[ERROR] Failed to generate response: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
 
     def query(self, user_message: str, conversation_history: List[Dict] = None) -> str:
         """
