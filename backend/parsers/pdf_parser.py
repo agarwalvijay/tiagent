@@ -167,6 +167,11 @@ class TIDatasheetParser:
         # Extract part numbers (always from PDF)
         metadata.part_numbers = self._extract_part_numbers(first_pages_text)
 
+        # Fallback: Use document ID if no part numbers found
+        if not metadata.part_numbers and metadata.document_id:
+            metadata.part_numbers = [metadata.document_id]
+            print(f"  ℹ️  Using document ID as part number: {metadata.document_id}")
+
         # Always extract from PDF first (some fields not in CSV)
         metadata.device_type = self._extract_device_type(first_pages_text)
         metadata.architecture = self._extract_architecture(first_pages_text)
@@ -322,14 +327,22 @@ class TIDatasheetParser:
             # Specific product families
             r'\b(TMS320[A-Z]\d{4,5}[A-Z]*)\b',  # TMS320F28377D (DSPs)
             r'\b(MSPM0[A-Z]\d{4})\b',            # MSPM0G5187 (MSPM0 MCUs)
+            r'\b(MSPM33[A-Z]\d{3,4}[A-Z]?)\b',  # MSPM33C321A (MSPM33 MCUs)
+            r'\b(MSPM0[HG]\d{4})\b',             # MSPM0H3215, MSPM0G3507 (MSPM0 variants)
             r'\b(MSP32[A-Z]\d{3,4}[A-Z]\d?)\b', # MSP32G031C8 (MSP32 MCUs)
             r'\b(MSP430[A-Z]\d{3,4}[A-Z]?)\b',  # MSP430F5529 (MSP430 MCUs)
             r'\b(TDA\d+[A-Z]{1,3}(?:-Q1)?)\b',  # TDA4VH-Q1, TDA4AH-Q1 (Jacinto processors)
             r'\b(AM\d{3,4}[A-Z](?:-Q1)?)\b',    # AM3358-Q1, AM5728 (Sitara processors)
             r'\b(CC\d{4}[A-Z]?(?:-Q1)?)\b',     # CC2652R, CC2640-Q1 (Wireless MCUs)
             r'\b(LP\d{4}[A-Z](?:-Q1)?)\b',      # LP5907-Q1 (Power management)
-            r'\b(TPS\d{4,5}[A-Z]?(?:-Q1)?)\b',  # TPS65217C-Q1 (Power management)
+            r'\b(TPS\d{4,5}[A-Z]?(?:-Q1)?)\b',  # TPS6594-Q1, TPS65217C (Power management)
             r'\b(LM\d{3,4}[A-Z]?(?:-Q1)?)\b',   # LM3481-Q1 (Power/Analog)
+            r'\b(TLV\d{4}[A-Z]?(?:-Q1)?)\b',    # TLV3901, TLV6723 (Comparators/Op-Amps)
+            r'\b(TCAN\d{4}[A-Z]?(?:-Q1)?)\b',   # TCAN5102, TCAN1473 (CAN transceivers)
+            r'\b(TIOL\d{3}[A-Z]?(?:-Q1)?)\b',   # TIOL221 (IO-Link transceivers)
+            r'\b(SN\d{5}[A-Z]{1,2})\b',         # SN74HC595 (Logic/Interface)
+            r'\b(OPA\d{3,4}[A-Z]?(?:-Q1)?)\b',  # OPA2350 (Op-Amps)
+            r'\b(INA\d{3}[A-Z]?(?:-Q1)?)\b',    # INA219 (Current/Power monitors)
             r'\b(F\d{5}[A-Z]{1,3}[A-Z]{3})\b',  # F28377DPTPSEP (some F-series)
         ]
 

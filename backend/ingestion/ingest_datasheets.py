@@ -198,16 +198,21 @@ class DatasheetIngestionPipeline:
             ).tolist()
             return embeddings
 
-    def ingest_directory(self, directory: str, pattern: str = "*.pdf") -> dict:
-        """Ingest all PDFs in a directory."""
+    def ingest_directory(self, directory: str, pattern: str = "**/*.pdf", recursive: bool = True) -> dict:
+        """Ingest all PDFs in a directory (recursively by default)."""
         pdf_dir = Path(directory)
-        pdf_files = list(pdf_dir.glob(pattern))
+
+        # Use rglob for recursive search, glob for non-recursive
+        if recursive:
+            pdf_files = list(pdf_dir.rglob("*.pdf"))
+        else:
+            pdf_files = list(pdf_dir.glob(pattern))
 
         if not pdf_files:
             print(f"No PDF files found in {directory}")
             return {"success": 0, "failed": 0}
 
-        print(f"\nFound {len(pdf_files)} PDF files to process\n")
+        print(f"\nFound {len(pdf_files)} PDF files to process (recursive={recursive})\n")
         print("=" * 70)
 
         results = {"success": 0, "failed": 0}
