@@ -370,19 +370,67 @@ class TIDatasheetParser:
         return list(part_numbers)[:15]  # Limit to 15 to catch variant families
 
     def _extract_device_type(self, text: str) -> Optional[str]:
-        """Extract device type."""
+        """
+        Extract device type with improved classification.
+        Uses part number patterns and text analysis for accurate categorization.
+        """
         text_lower = text.lower()
 
-        if "microcontroller" in text_lower or "mcu" in text_lower:
+        # First, check part numbers for strong classification signals
+        part_numbers = self.metadata.part_numbers if self.metadata else []
+        part_prefix = part_numbers[0][:3].upper() if part_numbers else ""
+
+        # Wireless/RF products (check BEFORE microcontroller to avoid misclassification)
+        wireless_keywords = ['wireless', 'rf transceiver', 'sub-1 ghz', 'sub-ghz', '2.4 ghz',
+                           'bluetooth', 'ble', 'zigbee', 'lora', 'lorawan', 'simplelink',
+                           'radio frequency', 'rf front-end', 'power amplifier']
+        if any(kw in text_lower for kw in wireless_keywords) or part_prefix in ['CC1', 'CC2', 'CC3']:
+            return "Wireless"
+
+        # Interface/Communication products
+        interface_keywords = ['can transceiver', 'io-link transceiver', 'rs-485', 'lin transceiver']
+        if any(kw in text_lower for kw in interface_keywords) or part_prefix in ['TCA', 'TIO', 'SN7']:
+            return "Interface"
+
+        # Power Management products
+        power_keywords = ['power management', 'pmic', 'buck converter', 'boost converter',
+                         'ldo', 'voltage regulator', 'battery charger']
+        if any(kw in text_lower for kw in power_keywords) or part_prefix in ['TPS', 'TLV', 'LP5', 'LM3']:
+            return "Power Management"
+
+        # Comparators (before Analog to be more specific)
+        if 'comparator' in text_lower or part_prefix == 'TLV':
+            return "Comparator"
+
+        # Processors (before MCU check)
+        processor_keywords = ['processor', 'sitara', 'jacinto', 'dsp', 'digital signal processor',
+                            'cortex-a', 'arm cortex-a']
+        if any(kw in text_lower for kw in processor_keywords) or part_prefix in ['AM2', 'AM6', 'TDA', 'TMS']:
+            # Exception: TMS320 with F28/F29 are C2000 MCUs, not processors
+            if part_prefix == 'TMS' and any(pn.startswith(('F28', 'F29')) for pn in part_numbers):
+                pass  # Will be caught by MCU check below
+            else:
+                return "Processor"
+
+        # Microcontrollers (check after wireless/interface to avoid false positives)
+        # Only classify as MCU if it's clearly an MCU, not just mentioning "microcontroller interface"
+        mcu_keywords = ['microcontroller unit', 'mcu core', 'embedded microcontroller',
+                       'cortex-m', 'arm cortex-m', 'mspm0', 'c2000']
+        mcu_prefixes = ['MSP', 'F28', 'F29', 'TMS']
+
+        # Strong MCU indicators
+        if any(kw in text_lower for kw in mcu_keywords) or part_prefix in mcu_prefixes:
             if "mixed-signal" in text_lower or "mixed signal" in text_lower:
                 return "Mixed-Signal Microcontroller"
             return "Microcontroller"
-        elif "processor" in text_lower or "dsp" in text_lower:
-            return "Processor"
-        elif "analog" in text_lower:
+
+        # Weak MCU indicator - only if not a false positive
+        if "microcontroller" in text_lower and "microcontroller interface" not in text_lower:
+            return "Microcontroller"
+
+        # Analog (catch-all for analog products)
+        if "analog" in text_lower or "operational amplifier" in text_lower:
             return "Analog"
-        elif "power management" in text_lower:
-            return "Power Management"
 
         return None
 
