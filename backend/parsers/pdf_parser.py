@@ -319,13 +319,20 @@ class TIDatasheetParser:
         return filename.upper(), "A"
 
     def _extract_part_numbers(self, text: str) -> List[str]:
-        """Extract part numbers from text."""
+        """
+        Extract part numbers from text.
+        Focuses on first 1000 characters (header area) where part numbers are typically shown.
+        """
         part_numbers = set()
+
+        # Focus on header area first (where blue text/part numbers typically are)
+        header_text = text[:1000]  # First ~1000 chars usually contain header
 
         # Common TI part number patterns
         patterns = [
             # Specific product families
             r'\b(TMS320[A-Z]\d{4,5}[A-Z]*)\b',  # TMS320F28377D (DSPs)
+            r'\b(F28[A-Z]\d{3,4}[A-Z]{1,2})\b', # F28E120SC, F28E120SB (C2000 MCUs)
             r'\b(MSPM0[A-Z]\d{4})\b',            # MSPM0G5187 (MSPM0 MCUs)
             r'\b(MSPM33[A-Z]\d{3,4}[A-Z]?)\b',  # MSPM33C321A (MSPM33 MCUs)
             r'\b(MSPM0[HG]\d{4})\b',             # MSPM0H3215, MSPM0G3507 (MSPM0 variants)
@@ -346,11 +353,18 @@ class TIDatasheetParser:
             r'\b(F\d{5}[A-Z]{1,3}[A-Z]{3})\b',  # F28377DPTPSEP (some F-series)
         ]
 
+        # First, extract from header area (highest priority - where blue text is)
         for pattern in patterns:
-            matches = re.findall(pattern, text)
+            matches = re.findall(pattern, header_text)
             part_numbers.update(matches)
 
-        return list(part_numbers)[:10]  # Limit to 10
+        # If we didn't find enough in header, search full text
+        if len(part_numbers) < 3:
+            for pattern in patterns:
+                matches = re.findall(pattern, text)
+                part_numbers.update(matches)
+
+        return list(part_numbers)[:15]  # Limit to 15 to catch variant families
 
     def _extract_device_type(self, text: str) -> Optional[str]:
         """Extract device type."""
