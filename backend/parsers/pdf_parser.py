@@ -331,15 +331,18 @@ class TIDatasheetParser:
         # Common TI part number patterns
         patterns = [
             # Specific product families
-            r'\b(TMS320[A-Z]\d{4,5}[A-Z]*)\b',  # TMS320F28377D (DSPs)
-            r'\b(F28[A-Z]\d{3,4}[A-Z]{1,2})\b', # F28E120SC, F28E120SB (C2000 MCUs)
+            r'\b(TMS320[A-Z]\d{4,7}[A-Z]*(?:-Q1)?)\b',  # TMS320F28377D, TMS320F2800157-Q1 (C2000 DSPs)
+            r'\b(F29[HP]\d{3}[A-Z]{2}(?:-Q1?)?)\b', # F29H859TU-Q, F29P589DM-Q1 (C2000 F29 MCUs)
+            r'\b(F28[A-Z]?\d{3,4}[A-Z]{1,2}(?:-SEP)?)\b', # F28E120SC, F28377D-SEP (C2000 F28 MCUs)
+            r'\b(AM62P(?:-Q1)?)\b',              # AM62P, AM62P-Q1 (Sitara processors)
+            r'\b(AM24\d{2})\b',                  # AM2434, AM2432, AM2431 (Sitara processors)
             r'\b(MSPM0[A-Z]\d{4})\b',            # MSPM0G5187 (MSPM0 MCUs)
             r'\b(MSPM33[A-Z]\d{3,4}[A-Z]?)\b',  # MSPM33C321A (MSPM33 MCUs)
             r'\b(MSPM0[HG]\d{4})\b',             # MSPM0H3215, MSPM0G3507 (MSPM0 variants)
             r'\b(MSP32[A-Z]\d{3,4}[A-Z]\d?)\b', # MSP32G031C8 (MSP32 MCUs)
             r'\b(MSP430[A-Z]\d{3,4}[A-Z]?)\b',  # MSP430F5529 (MSP430 MCUs)
             r'\b(TDA\d+[A-Z]{1,3}(?:-Q1)?)\b',  # TDA4VH-Q1, TDA4AH-Q1 (Jacinto processors)
-            r'\b(AM\d{3,4}[A-Z](?:-Q1)?)\b',    # AM3358-Q1, AM5728 (Sitara processors)
+            r'\b(AM\d{2,4}[A-Z]?(?:-Q1)?)\b',   # AM6442, AM62L, AM3358-Q1 (Sitara processors)
             r'\b(CC\d{4}[A-Z]?(?:-Q1)?)\b',     # CC2652R, CC2640-Q1 (Wireless MCUs)
             r'\b(LP\d{4}[A-Z](?:-Q1)?)\b',      # LP5907-Q1 (Power management)
             r'\b(TPS\d{4,5}[A-Z]?(?:-Q1)?)\b',  # TPS6594-Q1, TPS65217C (Power management)
