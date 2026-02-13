@@ -375,6 +375,89 @@ def narrative_use_case_synthesis(
     )
 
 
+@tool
+def smart_component_search(
+    component_type: str,
+    query: str,
+    top_k: int = 5
+) -> str:
+    """
+    Search for components by type with semantic query.
+    This combines device type filtering with semantic search for better accuracy.
+
+    Use this when you need to find a specific TYPE of component (MCU, wireless, power, etc.)
+    for a particular application.
+
+    Args:
+        component_type: Type of component - MUST be one of:
+            - "Microcontroller" (ultra-low-power MCUs, embedded controllers)
+            - "Processor" (Sitara AM, Jacinto TDA, high-performance processors)
+            - "Wireless" (CC series, RF transceivers, BLE, sub-1GHz)
+            - "Interface" (CAN transceivers, IO-Link, RS-485)
+            - "Power Management" (TPS series, buck/boost converters, LDOs)
+            - "Comparator" (TLV series, precision comparators)
+            - "Analog" (op-amps, analog front-ends)
+        query: Semantic search query for requirements
+               (e.g., "ultra-low-power battery operated ADC", "sub-1GHz LoRaWAN")
+        top_k: Number of results to return (default 5)
+
+    Returns:
+        List of matching components with specs and datasheets
+
+    Examples:
+        smart_component_search("Microcontroller", "ultra-low-power battery coin cell 5 years")
+        smart_component_search("Wireless", "sub-1GHz LoRaWAN long range")
+        smart_component_search("Power Management", "boost converter solar battery charging")
+    """
+    from backend.agent.tools import SearchTools
+
+    tools = SearchTools()
+
+    # Use hybrid search (semantic + metadata filter)
+    results = tools.hybrid_search(
+        query=query,
+        filters={"device_type": component_type},
+        top_k=top_k
+    )
+
+    if not results:
+        return f"No {component_type} components found matching: {query}"
+
+    # Format results with part numbers and key specs
+    output = [f"Found {len(results)} {component_type} component(s):\n\n"]
+
+    for i, result in enumerate(results, 1):
+        meta = result['metadata']
+        part_nums = meta.get('part_numbers', 'Unknown')
+
+        output.append(f"{i}. **{part_nums}**\n")
+        output.append(f"   - Type: {meta.get('device_type', 'N/A')}\n")
+
+        # Add key specs if available
+        if meta.get('architecture'):
+            output.append(f"   - Architecture: {meta['architecture']}\n")
+        if meta.get('core_freq_mhz') and float(meta['core_freq_mhz']) > 0:
+            output.append(f"   - Frequency: {meta['core_freq_mhz']} MHz\n")
+        if meta.get('flash_kb_max') and float(meta['flash_kb_max']) > 0:
+            output.append(f"   - Flash: {meta['flash_kb_max']} KB\n")
+
+        # Features
+        features = meta.get('key_features', '')
+        if features:
+            features_list = features.split(',')[:3]
+            output.append(f"   - Features: {', '.join([f.strip() for f in features_list if f.strip()])}\n")
+
+        # Datasheet link
+        link = meta.get('pdf_datasheet_url') or meta.get('html_datasheet_url') or meta.get('datasheet_link')
+        if link:
+            output.append(f"   - Datasheet: {link}\n")
+
+        output.append(f"   - Relevance: {result.get('similarity', 0):.2f}\n")
+        output.append("\n")
+
+    return "".join(output)
+
+
 # System prompt
 INTENT_EXTRACTION_PROMPT = """Extract search hints from the user's query about semiconductor products.
 
@@ -654,6 +737,7 @@ class SemiconductorAgent:
 
         # Bind tools to LLM
         self.tools = [
+            smart_component_search,  # NEW: Device-type aware search
             semantic_search,
             filtered_search,
             get_part_info,
@@ -926,6 +1010,15 @@ class SemiconductorAgent:
         system_message = SystemMessage(content=SYSTEM_PROMPT + """
 
 **NOW GENERATING FINAL RESPONSE:**""" + no_tools_instruction + """
+
+🚨 **CRITICAL VALIDATION - ONLY RECOMMEND PARTS FROM TOOL RESULTS:**
+Before recommending ANY part number, CHECK if it appeared in the ToolMessage results above.
+- ✅ If part was in tool results → recommend it
+- ❌ If part was NOT in tool results → DO NOT recommend it (even if you know it from training)
+- Example WRONG: Recommend CC1310 when tools only found CC1121
+- Example CORRECT: Recommend CC1121 (what tools actually found)
+- If component type not found: Say "I couldn't find a [type] in our catalog. Closest match is [X]"
+
 - Use ONLY information from the tool results above
 - **CRITICAL: If a tool result includes a comparison table, you MUST include that exact table in your response**
 - **PRESERVE ALL TABLES**: Copy comparison tables directly from tool results (competitor_kill_sheet, compare_parts, etc.)
