@@ -1228,12 +1228,12 @@ def create_competitor_kill_sheet_tool(
     
     # Why choose TI section
     output.append(f"## 💡 Why Choose TI?\n\n")
-    
+
     # Generic TI advantages
-    output.append(f"**1. Industry-Leading Low Power**\n")
-    output.append(f"- TI MSPM0 series offers industry-leading standby current (as low as 88nA)\n")
-    output.append(f"- Multiple low-power modes for optimal battery life\n")
-    output.append(f"- Smart peripherals that operate independently in sleep modes\n\n")
+    output.append(f"**1. Industry-Leading Performance and Efficiency**\n")
+    output.append(f"- Best-in-class power efficiency across MCUs, processors, and analog products\n")
+    output.append(f"- Multiple low-power modes and power management options\n")
+    output.append(f"- Smart peripherals and integrated functionality reduce system complexity\n\n")
     
     output.append(f"**2. Superior Development Ecosystem**\n")
     output.append(f"- Free Code Composer Studio IDE with advanced debugging\n")
@@ -1414,8 +1414,8 @@ def synthesize_use_case_solution_tool(
     
     # Extract technical requirements from use case
     requirements = _extract_requirements_from_use_case(use_case_lower, constraints)
-    
-    # Find suitable MCUs
+
+    # Find suitable parts (MCUs, processors, interface chips, comparators, etc.)
     candidates = []
     all_results = tools.collection.get(
         limit=10000,
@@ -1577,15 +1577,20 @@ def _extract_requirements_from_use_case(use_case: str, constraints: Optional[Dic
 def _score_use_case_fit(metadata: Dict, requirements: Dict, use_case: str) -> float:
     """Score how well a part fits the use case."""
     score = 0.0
-    
-    # Ultra-low-power requirement
+
+    # Ultra-low-power requirement - check for low-power features in any product family
     if requirements.get('ultra_low_power'):
-        if 'MSPM0' in metadata.get('part_numbers', ''):
-            score += 50  # MSPM0 is ultra-low-power
-    
+        features = metadata.get('key_features', '').lower()
+        part = metadata.get('part_numbers', '')
+        # Score based on low-power indicators across all product families
+        if 'low power' in features or 'ultra-low power' in features or 'MSPM0' in part:
+            score += 50
+
     # Low power requirement
     if requirements.get('low_power'):
-        if 'MSPM0' in metadata.get('part_numbers', ''):
+        features = metadata.get('key_features', '').lower()
+        part = metadata.get('part_numbers', '')
+        if 'low power' in features or 'MSPM0' in part:
             score += 30
     
     # BLE requirement
@@ -1635,9 +1640,10 @@ def _generate_executive_summary(use_case: str, solution: Dict, requirements: Dic
     flash = meta.get('flash_kb_max', 0)
     ram = meta.get('ram_kb_max', 0)
     freq = meta.get('core_freq_mhz', 0)
-    
+    device_type = meta.get('device_type', 'component')
+
     summary = []
-    summary.append(f"For **{use_case}**, we recommend the **{part}** as your primary MCU.\n\n")
+    summary.append(f"For **{use_case}**, we recommend the **{part}** as your primary solution.\n\n")
     
     # Key highlights
     summary.append(f"**Solution Highlights:**\n")
@@ -1645,10 +1651,13 @@ def _generate_executive_summary(use_case: str, solution: Dict, requirements: Dic
     if requirements.get('ultra_low_power') or requirements.get('battery_life_target'):
         summary.append(f"- ⚡ **{domain['target_life']} battery life** on {domain['typical_battery']}\n")
     
-    summary.append(f"- 🎯 **{flash}KB flash, {ram}KB RAM** - ample for your application\n")
-    
-    if 'MSPM0' in part:
-        summary.append(f"- 🔋 **Industry-leading low power** - 88nA shutdown, <2µA standby\n")
+    if flash > 0 and ram > 0:
+        summary.append(f"- 🎯 **{flash}KB flash, {ram}KB RAM** - ample for your application\n")
+
+    # Add power efficiency note for low-power products
+    features = meta.get('key_features', '').lower()
+    if 'low power' in features or 'ultra-low power' in features:
+        summary.append(f"- 🔋 **Optimized for low power** - Ideal for battery-powered applications\n")
     
     features = meta.get('key_features', '').split(',')[:3]
     if features and features[0]:
@@ -1680,13 +1689,24 @@ def _generate_architecture_narrative(primary: Dict, alternatives: List, requirem
     )
     
     link_text = f" - 📄 [Datasheet]({datasheet_link})" if datasheet_link else ""
-    
-    arch.append(f"### Core Microcontroller: **{part}**{link_text}\n\n")
-    
-    arch.append(f"**Why this MCU:**\n")
-    arch.append(f"- **Processing**: {meta.get('architecture', 'ARM Cortex')} at {meta.get('core_freq_mhz', 0)}MHz\n")
-    arch.append(f"- **Memory**: {meta.get('flash_kb_max', 0)}KB flash for your application code + OTA updates\n")
-    arch.append(f"- **RAM**: {meta.get('ram_kb_max', 0)}KB SRAM for data buffers and processing\n")
+    device_type = meta.get('device_type', 'Component')
+
+    arch.append(f"### Primary Solution: **{part}**{link_text}\n\n")
+
+    arch.append(f"**Why {part}:**\n")
+
+    # Show specs based on what's available
+    arch_str = meta.get('architecture', '')
+    freq = meta.get('core_freq_mhz', 0)
+    if arch_str and freq > 0:
+        arch.append(f"- **Processing**: {arch_str} at {freq}MHz\n")
+
+    flash = meta.get('flash_kb_max', 0)
+    ram = meta.get('ram_kb_max', 0)
+    if flash > 0:
+        arch.append(f"- **Memory**: {flash}KB flash for your application code\n")
+    if ram > 0:
+        arch.append(f"- **RAM**: {ram}KB SRAM for data buffers and processing\n")
     
     # Peripherals narrative
     peripherals = meta.get('peripherals', '').split(',')
