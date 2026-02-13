@@ -65,31 +65,45 @@ function App() {
   };
 
   const exampleQueries = {
+    "🏭 System-Level Solutions": [
+      "I'm building an industrial IoT gateway that needs real-time processing, CAN-FD communication, wireless connectivity, and battery backup. What TI components should I use?",
+      "Design a solar-powered air quality monitoring station that runs on coin cell + solar, measures multiple sensors, sends data via LoRaWAN every 10 minutes, and must last 5+ years. What's the complete TI solution?",
+      "I need components for an EV battery management system: monitor 96 cells, high-precision measurement, CAN-FD communication, automotive-grade, functional safety. Recommend the TI chip set."
+    ],
+    "🔌 Interface & Communication": [
+      "Build a factory automation controller supporting IO-Link, CAN bus, USB, and real-time performance. What TI products fit this?",
+      "I need a CAN-FD transceiver for automotive use. Compare TCAN1463A vs TCAN2410-Q1: speed, power, price, and specifications.",
+      "Design an ADAS camera module with image processing, MIPI CSI-2, CAN-FD, and low latency. Suggest TI processors and interface chips."
+    ],
+    "⚡ Power-Optimized Designs": [
+      "Create a fitness tracker with heart rate, SpO2, BLE 5.3, 7-day battery on 100mAh coin cell. Which TI chips minimize power?",
+      "Design a battery-powered smart thermostat: 2x AA batteries, 5-year life, WiFi, temperature sensing, HVAC control. Recommend TI's lowest-power solution.",
+      "How long will MSPM0G5187 run on a CR2032 battery (240mAh) if active 5% and sleeping 95%?"
+    ],
+    "🚗 Automotive & Industrial": [
+      "I need a motor control solution for electric power steering: dual-core for safety, CAN-FD, high-resolution PWM, ASIL-D capable. What's the TI reference design?",
+      "Build a smart building gateway with BACnet/IP, multiple CAN buses, Ethernet, local HMI. Which TI processors and transceivers?",
+      "Compare TI's ultra-low-power MCUs for battery sensors: MSPM0G3507 vs MSPM0L1306 - standby current, ADC performance, pricing."
+    ],
+    "🌐 Wireless & Connectivity": [
+      "Create a soil moisture sensor for precision farming: LoRaWAN (10km range), solar + supercapacitor, 10-year deployment. Which TI chips maximize range and battery life?",
+      "Design a parking space sensor: ultrasonic sensing, NB-IoT cellular, 5+ year battery, -30°C to 70°C. Recommend TI's most power-efficient solution.",
+      "Recommend a complete solution for a battery-powered BLE temperature sensor shipping at 100k units/year."
+    ],
     "🎯 Competitive Analysis": [
       "I'm using an STM32L4, what TI alternatives do you have?",
-      "Give me a TI MCU similar to MSP432P401R but without USB",
-      "Assume I am a Lead Engineer at a tier-1 automotive supplier. We are currently using the STM32L476 for our smart dashboard controller, but we are facing cost pressures and need better standby power for our next-gen model. For me, generate a full proposal that recommends a TI alternative. Include a side-by-side comparison, a competitive 'kill sheet' against ST, and a solution narrative that explains the TCO (Total Cost of Ownership) savings if we scale to 250,000 units."
+      "Assume I am a Lead Engineer at a tier-1 automotive supplier. We're using STM32L476 for smart dashboard, but need better standby power and lower cost. Generate a full proposal with TI alternative, side-by-side comparison, competitive kill sheet, and TCO savings for 250,000 units.",
+      "Should I use a Sitara processor or C2000 MCU for motor control with 6 axes, Ethernet, HMI touchscreen, and real-time control loops <10µs?"
     ],
-    "💰 Pricing & Cost Optimization": [
+    "💰 Pricing & Cost": [
       "Which is cheaper: MSPM0G3507 or MSPM0G5187 for 10,000 units?",
-      "Find a cheaper alternative to MSPM0G5187 without USB"
+      "Find a cheaper alternative to MSPM0G5187 without USB",
+      "Compare prices for TCAN CAN transceivers at 1000 units"
     ],
-    "🔋 Power & Battery Life": [
-      "How long will MSPM0G5187 run on a CR2032 battery (240mAh) if active 5% and sleeping 95%?",
-      "What is the deep sleep current for MSPM0G5187?"
-    ],
-    "🔍 Smart Search": [
+    "🔍 Technical Search": [
       "Find parts with 128KB flash, USB, and CAN-FD under $2",
+      "Which TI MCU has the fastest ADC for 8 channels at 1MSPS simultaneously?",
       "Find VQFN-48 parts with at least 256KB flash and 80MHz"
-    ],
-    "📊 Comparison & Selection": [
-      "Compare MSPM0G3507 vs MSPM0G5187 for low-power sensing",
-      "Show pin-compatible alternatives to MSPM0G3507"
-    ],
-    "🎓 Expert Recommendations": [
-      "Recommend a complete solution for a battery-powered soil moisture sensor",
-      "If you had to pick one TI MCU for a coin-cell BLE temperature sensor shipping at 100k units/year, what would you pick and why?",
-      "Is MSPM0G3507 still in production or discontinued?"
     ]
   };
 
