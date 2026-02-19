@@ -952,6 +952,17 @@ Before recommending ANY part number, CHECK if it appeared in the ToolMessage res
 
         messages_with_system = [system_message] + list(messages)
 
+        # Emit one of several messages to indicate final response is being crafted
+        import random
+        crafting_messages = [
+            "Crafting your response...",
+            "Putting it all together...",
+            "Synthesizing results...",
+            "Preparing recommendations...",
+            "Analyzing findings...",
+        ]
+        self._emit_progress("thinking", random.choice(crafting_messages))
+
         try:
             # For final response, use LLM without tools to prevent unwanted tool calls
             # Groq models aggressively try to call tools even in final response phase
