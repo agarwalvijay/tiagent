@@ -58,19 +58,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
           {message.role === 'user' ? 'You' : 'TI Agent'}
         </div>
 
-        {/* Show tool executions for assistant messages */}
-        {message.role === 'assistant' && message.toolExecutions && message.toolExecutions.length > 0 && (
-          <div className="tool-executions">
-            {message.toolExecutions.map((tool, idx) => (
-              <div key={idx} className={`tool-badge ${tool.status}`}>
-                <span className="tool-icon">{getToolIcon(tool.name)}</span>
-                <span className="tool-name">{getToolDisplayName(tool.name)}</span>
-                {tool.status === 'success' && <span className="tool-status">✓</span>}
-                {tool.status === 'error' && <span className="tool-status">✗</span>}
-              </div>
-            ))}
-          </div>
-        )}
 
         <div className="message-text">
           {message.role === 'assistant' ? (
