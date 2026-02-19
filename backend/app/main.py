@@ -5,7 +5,9 @@ from pydantic import BaseModel
 from typing import List, Dict, Optional
 import uuid
 import sys
+import asyncio
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from backend.agent.graph import get_agent
@@ -60,6 +62,9 @@ app.add_middleware(
 # In-memory session storage (replace with Redis in production)
 sessions: Dict[str, List[Dict]] = {}
 
+# Progress queues: session_id -> asyncio.Queue for streaming tool progress
+progress_queues: Dict[str, asyncio.Queue] = {}
+
 
 @app.get("/")
 async def root():
@@ -94,6 +99,17 @@ async def chat(request: ChatRequest):
     # Get agent and process query
     agent = get_agent()
 
+    # Wire up progress events if a WebSocket is listening for this session
+    loop = asyncio.get_event_loop()
+    queue = progress_queues.get(session_id)
+
+    if queue:
+        def progress_callback(event):
+            loop.call_soon_threadsafe(queue.put_nowait, event)
+        agent.set_progress_callback(progress_callback)
+    else:
+        agent.set_progress_callback(None)
+
     try:
         result = agent.query(request.message, history)
         response_text = result["response"]
@@ -102,7 +118,14 @@ async def chat(request: ChatRequest):
         import traceback
         print(f"[ERROR] Agent query failed:")
         print(traceback.format_exc())
+        if queue:
+            loop.call_soon_threadsafe(queue.put_nowait, {"type": "error", "message": str(e)})
         raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
+    finally:
+        # Signal progress stream is done and clean up
+        if queue:
+            loop.call_soon_threadsafe(queue.put_nowait, {"type": "done"})
+            progress_queues.pop(session_id, None)
 
     # Update session history
     history.append({"role": "user", "content": request.message})
@@ -116,56 +139,74 @@ async def chat(request: ChatRequest):
     )
 
 
-@app.websocket("/ws/chat")
-async def websocket_chat(websocket: WebSocket):
+@app.websocket("/ws/progress")
+async def websocket_progress(websocket: WebSocket):
     """
-    WebSocket endpoint for streaming chat.
-
-    Sends responses token-by-token for better UX.
+    WebSocket endpoint for streaming progress events during agent processing.
+    Sends progress events (tool calls, status) while HTTP /api/chat handles final response.
     """
     await websocket.accept()
 
+    progress_queue: asyncio.Queue = asyncio.Queue()
+    loop = asyncio.get_event_loop()
+
+    try:
+        while True:
+            # Receive session_id to subscribe to progress for
+            data = await websocket.receive_json()
+            session_id = data.get("session_id")
+
+            if not session_id:
+                await websocket.send_json({"type": "error", "message": "No session_id provided"})
+                continue
+
+            # Register this queue as the progress receiver for this session
+            progress_queues[session_id] = progress_queue
+
+            # Stream progress events until "done" is received
+            while True:
+                event = await progress_queue.get()
+                await websocket.send_json(event)
+
+                if event.get("type") in ("done", "error"):
+                    break
+
+    except WebSocketDisconnect:
+        print(f"Progress WebSocket disconnected")
+
+
+@app.websocket("/ws/chat")
+async def websocket_chat(websocket: WebSocket):
+    """WebSocket endpoint for full chat (legacy - progress + response)."""
+    await websocket.accept()
     session_id = str(uuid.uuid4())
     conversation_history = []
 
     try:
         while True:
-            # Receive message
             data = await websocket.receive_json()
             message = data.get("message")
-
             if not message:
                 await websocket.send_json({"error": "No message provided"})
                 continue
 
-            # Get agent response
             agent = get_agent()
-
             try:
                 result = agent.query(message, conversation_history)
                 response_text = result["response"]
                 tool_executions = result.get("tool_executions", [])
-
-                # Update history
                 conversation_history.append({"role": "user", "content": message})
                 conversation_history.append({"role": "assistant", "content": response_text})
-
-                # Send response
                 await websocket.send_json({
                     "type": "response",
                     "content": response_text,
                     "session_id": session_id,
                     "tool_executions": tool_executions
                 })
-
             except Exception as e:
-                await websocket.send_json({
-                    "type": "error",
-                    "content": f"Error: {str(e)}"
-                })
+                await websocket.send_json({"type": "error", "content": f"Error: {str(e)}"})
 
     except WebSocketDisconnect:
-        # Save session on disconnect
         if conversation_history:
             sessions[session_id] = conversation_history
         print(f"WebSocket disconnected: {session_id}")

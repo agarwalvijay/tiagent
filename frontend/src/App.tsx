@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './App.css';
 import ChatMessage from './components/ChatMessage';
-import { sendMessage, ToolExecution } from './services/api';
+import { sendMessage, ToolExecution, ProgressEvent } from './services/api';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -14,6 +14,7 @@ function App() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [progressMessage, setProgressMessage] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -35,7 +36,15 @@ function App() {
     setLoading(true);
 
     try {
-      const response = await sendMessage(input, sessionId, messages);
+      const response = await sendMessage(input, sessionId, messages, (event: ProgressEvent) => {
+        if (event.type === 'thinking') {
+          setProgressMessage('Thinking...');
+        } else if (event.type === 'tool_start') {
+          setProgressMessage(event.message);
+        } else if (event.type === 'tool_done' || event.type === 'done') {
+          setProgressMessage('');
+        }
+      });
 
       const assistantMessage: Message = {
         role: 'assistant',
@@ -56,6 +65,7 @@ function App() {
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setLoading(false);
+      setProgressMessage('');
     }
   };
 
@@ -114,7 +124,15 @@ function App() {
     setMessages((prev) => [...prev, userMessage]);
     setLoading(true);
 
-    sendMessage(query, sessionId, messages)
+    sendMessage(query, sessionId, messages, (event: ProgressEvent) => {
+      if (event.type === 'thinking') {
+        setProgressMessage('Thinking...');
+      } else if (event.type === 'tool_start') {
+        setProgressMessage(event.message);
+      } else if (event.type === 'tool_done' || event.type === 'done') {
+        setProgressMessage('');
+      }
+    })
       .then((response) => {
         const assistantMessage: Message = {
           role: 'assistant',
@@ -134,6 +152,7 @@ function App() {
       })
       .finally(() => {
         setLoading(false);
+        setProgressMessage('');
       });
   };
 
@@ -187,6 +206,9 @@ function App() {
                   <span></span>
                   <span></span>
                 </div>
+                {progressMessage && (
+                  <span className="progress-message">{progressMessage}</span>
+                )}
               </div>
             )}
             <div ref={messagesEndRef} />

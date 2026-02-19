@@ -826,6 +826,7 @@ class SemiconductorAgent:
         print(f"[DEBUG] Calling LLM with {len(self.tools)} tools available")
         if search_hints.get("specs"):
             print(f"[DEBUG] Search hints - specs: {search_hints['specs']}, sections: {search_hints.get('sections', [])}")
+        self._emit_progress("thinking", "Analyzing your query...")
         response = self.llm_with_tools.invoke(messages_with_system)
         print(f"[DEBUG] LLM response received. Tool calls: {len(response.tool_calls) if response.tool_calls else 0}")
 
@@ -848,6 +849,20 @@ class SemiconductorAgent:
                     "status": "executing"
                 }
 
+                # Emit progress for tool start
+                tool_label = tool_name.replace("_", " ").title()
+                if tool_name == "smart_component_search":
+                    component_type = tool_args.get("component_type", "components")
+                    self._emit_progress("tool_start", f"Searching for {component_type}...", tool=tool_name)
+                elif tool_name == "semantic_search":
+                    self._emit_progress("tool_start", f"Searching knowledge base...", tool=tool_name)
+                elif tool_name == "compare_parts":
+                    self._emit_progress("tool_start", f"Comparing parts...", tool=tool_name)
+                elif tool_name == "find_parts_by_specs":
+                    self._emit_progress("tool_start", f"Finding parts by specifications...", tool=tool_name)
+                else:
+                    self._emit_progress("tool_start", f"Running {tool_label}...", tool=tool_name)
+
                 # Execute tool
                 tool_func = next((t for t in self.tools if t.name == tool_name), None)
                 if tool_func:
@@ -855,6 +870,7 @@ class SemiconductorAgent:
                         result = tool_func.invoke(tool_args)
                         print(f"[DEBUG] Tool {tool_name} succeeded, result length: {len(str(result))}")
                         tool_info["status"] = "success"
+                        self._emit_progress("tool_done", f"Done", tool=tool_name)
                         tool_info["result_length"] = len(str(result))
                         new_messages.append(
                             ToolMessage(
@@ -957,6 +973,15 @@ Before recommending ANY part number, CHECK if it appeared in the ToolMessage res
             import traceback
             traceback.print_exc()
             raise
+
+    def set_progress_callback(self, callback):
+        """Set a callback function to receive progress events during query processing."""
+        self._progress_callback = callback
+
+    def _emit_progress(self, event_type: str, message: str, **kwargs):
+        """Emit a progress event via callback if one is set."""
+        if hasattr(self, '_progress_callback') and self._progress_callback:
+            self._progress_callback({"type": event_type, "message": message, **kwargs})
 
     def query(self, user_message: str, conversation_history: List[Dict] = None) -> str:
         """
