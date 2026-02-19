@@ -16,12 +16,16 @@ class Settings(BaseSettings):
     # DeepSeek
     deepseek_api_key: Optional[str] = None
     deepseek_model: str = "deepseek-chat"
-    deepseek_base_url: str = "https://api.deepseek.com"
+    deepseek_base_url: str = "https://api.deepseek.com/beta"
 
     # Groq
     groq_api_key: Optional[str] = None
     groq_model: str = "openai/gpt-oss-20b"  # or llama-3.1-70b-versatile
     groq_base_url: str = "https://api.groq.com/openai/v1"
+
+    # Google (Gemini)
+    google_api_key: Optional[str] = None
+    google_model: str = "gemini-1.5-flash"  # or gemini-1.5-pro, gemini-2.0-flash-exp
 
     # ChromaDB
     chroma_persist_dir: str = "./chroma_db"

@@ -3,6 +3,7 @@ from typing import TypedDict, Annotated, Sequence, List, Dict, Any
 import operator
 from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
 import sys
@@ -603,6 +604,14 @@ class SemiconductorAgent:
                 base_url=settings.deepseek_base_url
             )
             print(f"[Agent] Using DeepSeek model: {settings.deepseek_model}")
+            print(f"[Agent] DeepSeek base URL: {settings.deepseek_base_url}")
+        elif settings.llm_provider == "google":
+            self.llm = ChatGoogleGenerativeAI(
+                model=settings.google_model,
+                temperature=0.1,
+                google_api_key=settings.google_api_key
+            )
+            print(f"[Agent] Using Google model: {settings.google_model}")
         else:
             self.llm = ChatOpenAI(
                 model=settings.openai_model,
@@ -629,6 +638,7 @@ class SemiconductorAgent:
             narrative_use_case_synthesis
         ]
 
+        # Bind tools to LLM
         self.llm_with_tools = self.llm.bind_tools(self.tools)
 
         # Build the graph
@@ -800,7 +810,16 @@ class SemiconductorAgent:
             if search_hints.get("negative_terms"):
                 hints_context += f"- Avoid: {', '.join(search_hints['negative_terms'])}\n"
 
-        system_message = SystemMessage(content=SYSTEM_PROMPT + hints_context)
+        # Add per-turn reminder for models that reuse old context (especially Google)
+        fresh_query_reminder = ""
+        if settings.llm_provider == "google":
+            fresh_query_reminder = "\n\n🚨 **THIS IS A NEW QUERY - IGNORE PREVIOUS TOOL RESULTS:**\n" \
+                                   "- The current user question is DIFFERENT from previous questions\n" \
+                                   "- Previous tool results are IRRELEVANT to this query\n" \
+                                   "- You MUST call tools again to search for THIS specific query\n" \
+                                   "- DO NOT reuse information from earlier in the conversation\n"
+
+        system_message = SystemMessage(content=SYSTEM_PROMPT + hints_context + fresh_query_reminder)
         messages_with_system = [system_message] + list(messages)
 
         # Call LLM with tools
@@ -878,7 +897,8 @@ class SemiconductorAgent:
         # Otherwise, generate response from tool results
         messages = state["messages"]
 
-        # Add explicit instruction not to call tools (especially for Groq)
+        # Add explicit instruction not to call tools (for Groq)
+        # DeepSeek needs tools bound to stay in OpenAI mode, so we don't restrict it
         no_tools_instruction = ""
         if settings.llm_provider == "groq":
             no_tools_instruction = "\n\n**CRITICAL: DO NOT CALL ANY TOOLS. You already have all the information you need from the tool results above. Just write the final response.**\n"
@@ -919,7 +939,13 @@ Before recommending ANY part number, CHECK if it appeared in the ToolMessage res
         try:
             # For final response, use LLM without tools to prevent unwanted tool calls
             # Groq models aggressively try to call tools even in final response phase
-            response = self.llm.invoke(messages_with_system)
+            # DeepSeek beta endpoint needs tools bound to stay in OpenAI mode
+            if settings.llm_provider == "deepseek":
+                # Use llm_with_tools for DeepSeek to maintain OpenAI-compatible format
+                # The no_tools_instruction will prevent actual tool calls
+                response = self.llm_with_tools.invoke(messages_with_system)
+            else:
+                response = self.llm.invoke(messages_with_system)
 
             print(f"[DEBUG] Final response generated, length: {len(response.content)}")
             return {
