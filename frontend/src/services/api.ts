@@ -36,25 +36,31 @@ export const sendMessage = async (
 ): Promise<ChatResponse> => {
   const resolvedSessionId = sessionId || crypto.randomUUID();
 
-  // Open WebSocket for progress events before sending HTTP request
+  // Open WebSocket for progress events and wait until registered before sending HTTP
   let ws: WebSocket | null = null;
   if (onProgress) {
-    ws = new WebSocket(`${WS_BASE_URL}/ws/progress`);
+    await new Promise<void>((resolve) => {
+      ws = new WebSocket(`${WS_BASE_URL}/ws/progress`);
 
-    ws.onopen = () => {
-      ws!.send(JSON.stringify({ session_id: resolvedSessionId }));
-    };
+      ws.onopen = () => {
+        // Register this session with the backend, then unblock HTTP request
+        ws!.send(JSON.stringify({ session_id: resolvedSessionId }));
+        resolve();
+      };
 
-    ws.onmessage = (event) => {
-      const data: ProgressEvent = JSON.parse(event.data);
-      onProgress(data);
-      if (data.type === 'done' || data.type === 'error') {
-        ws!.close();
-      }
-    };
+      ws.onmessage = (event) => {
+        const data: ProgressEvent = JSON.parse(event.data);
+        onProgress(data);
+        if (data.type === 'done' || data.type === 'error') {
+          ws!.close();
+        }
+      };
+
+      ws.onerror = () => resolve(); // Don't block HTTP if WS fails
+    });
   }
 
-  // Send HTTP request (final response)
+  // Send HTTP request (final response) - WebSocket is now registered
   const response = await axios.post<ChatResponse>(`${API_BASE_URL}/api/chat`, {
     message,
     session_id: resolvedSessionId,
