@@ -40,23 +40,24 @@ export const sendMessage = async (
   let ws: WebSocket | null = null;
   if (onProgress) {
     await new Promise<void>((resolve) => {
-      ws = new WebSocket(`${WS_BASE_URL}/ws/progress`);
+      const socket = new WebSocket(`${WS_BASE_URL}/ws/progress`);
+      ws = socket;
 
-      ws.onopen = () => {
+      socket.onopen = () => {
         // Register this session with the backend, then unblock HTTP request
-        ws!.send(JSON.stringify({ session_id: resolvedSessionId }));
+        socket.send(JSON.stringify({ session_id: resolvedSessionId }));
         resolve();
       };
 
-      ws.onmessage = (event) => {
+      socket.onmessage = (event) => {
         const data: ProgressEvent = JSON.parse(event.data);
         onProgress(data);
         if (data.type === 'done' || data.type === 'error') {
-          ws!.close();
+          socket.close();
         }
       };
 
-      ws.onerror = () => resolve(); // Don't block HTTP if WS fails
+      socket.onerror = () => resolve(); // Don't block HTTP if WS fails
     });
   }
 
