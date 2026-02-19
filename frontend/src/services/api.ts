@@ -37,16 +37,13 @@ export const sendMessage = async (
   const resolvedSessionId = sessionId || crypto.randomUUID();
 
   // Open WebSocket for progress events and wait until registered before sending HTTP
-  let ws: WebSocket | null = null;
   if (onProgress) {
     await new Promise<void>((resolve) => {
       const socket = new WebSocket(`${WS_BASE_URL}/ws/progress`);
-      ws = socket;
 
       socket.onopen = () => {
-        // Register this session with the backend, then unblock HTTP request
         socket.send(JSON.stringify({ session_id: resolvedSessionId }));
-        resolve();
+        resolve(); // Unblock HTTP request - WS is now registered
       };
 
       socket.onmessage = (event) => {
@@ -68,7 +65,6 @@ export const sendMessage = async (
     conversation_history: conversationHistory,
   });
 
-  ws?.close();
   return response.data;
 };
 
