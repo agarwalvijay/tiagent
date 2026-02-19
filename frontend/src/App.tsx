@@ -123,9 +123,7 @@ function App() {
     setLoading(true);
 
     sendMessage(query, sessionId, messages, (event: ProgressEvent) => {
-      if (event.type === 'thinking') {
-        setProgressMessage('Thinking...');
-      } else if (event.type === 'tool_start') {
+      if (event.type === 'thinking' || event.type === 'tool_start') {
         setProgressMessage(event.message);
       } else if (event.type === 'tool_done' || event.type === 'done') {
         setProgressMessage('');
