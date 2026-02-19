@@ -65,6 +65,9 @@ sessions: Dict[str, List[Dict]] = {}
 # Progress queues: session_id -> asyncio.Queue for streaming tool progress
 progress_queues: Dict[str, asyncio.Queue] = {}
 
+# Thread pool for running synchronous agent without blocking the event loop
+executor = ThreadPoolExecutor(max_workers=4)
+
 
 @app.get("/")
 async def root():
@@ -105,13 +108,18 @@ async def chat(request: ChatRequest):
 
     if queue:
         def progress_callback(event):
+            # Called from agent thread - safely put event onto async queue
             loop.call_soon_threadsafe(queue.put_nowait, event)
         agent.set_progress_callback(progress_callback)
     else:
         agent.set_progress_callback(None)
 
     try:
-        result = agent.query(request.message, history)
+        # Run agent in thread pool so event loop stays free to send WS progress events
+        result = await loop.run_in_executor(
+            executor,
+            lambda: agent.query(request.message, history)
+        )
         response_text = result["response"]
         tool_executions = result.get("tool_executions", [])
     except Exception as e:
