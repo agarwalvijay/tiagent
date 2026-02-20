@@ -826,6 +826,13 @@ class SemiconductorAgent:
         print(f"[DEBUG] Calling LLM with {len(self.tools)} tools available")
         if search_hints.get("specs"):
             print(f"[DEBUG] Search hints - specs: {search_hints['specs']}, sections: {search_hints.get('sections', [])}")
+
+        # Only show "Analyzing" on first call (before any tools executed)
+        # Check if we have any ToolMessages yet
+        has_tool_results = any(msg.__class__.__name__ == 'ToolMessage' for msg in messages)
+        if not has_tool_results:
+            self._emit_progress("thinking", "Analyzing your query...")
+
         response = self.llm_with_tools.invoke(messages_with_system)
         print(f"[DEBUG] LLM response received. Tool calls: {len(response.tool_calls) if response.tool_calls else 0}")
 
