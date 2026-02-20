@@ -1,0 +1,15 @@
+[Unit]
+Description=TI Semiconductor Agent Backend
+After=network.target
+
+[Service]
+Type=simple
+User=vagarwal
+WorkingDirectory=/home/vagarwal/ti-agent
+Environment="PATH=/home/vagarwal/ti-agent/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/home/vagarwal/ti-agent/venv/bin/python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
