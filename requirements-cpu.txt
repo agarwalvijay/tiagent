@@ -1,3 +1,12 @@
+# CPU-only requirements for production server (no CUDA/nvidia packages)
+# Install PyTorch CPU-only FIRST to avoid pulling CUDA dependencies
+
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# PyTorch CPU-only (install before sentence-transformers)
+torch==2.2.0+cpu
+torchvision==0.17.0+cpu
+
 # Core Framework
 fastapi==0.115.0
 uvicorn[standard]==0.32.0

@@ -55,8 +55,8 @@ source venv/bin/activate
 echo "Installing/upgrading pip..."
 pip install --upgrade pip
 
-echo "Installing Python dependencies..."
-pip install -r requirements.txt
+echo "Installing Python dependencies (CPU-only, no CUDA/nvidia)..."
+pip install -r requirements-cpu.txt
 
 # 2. Build frontend
 echo ""
