@@ -1,6 +1,9 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+// Use environment variable if set, otherwise use current domain in production or localhost in dev
+const API_BASE_URL = process.env.REACT_APP_API_URL !== undefined
+  ? process.env.REACT_APP_API_URL
+  : (process.env.NODE_ENV === 'production' ? window.location.origin : 'http://localhost:8000');
 const WS_BASE_URL = API_BASE_URL.replace(/^http/, 'ws');
 
 export interface Message {
