@@ -58,13 +58,22 @@ pip install --upgrade pip
 echo "Installing Python dependencies (CPU-only, no CUDA/nvidia)..."
 pip install -r requirements-cpu.txt
 
-# 2. Build frontend
+# 2. Check frontend build exists
 echo ""
-echo "📦 Building frontend for production..."
-cd frontend
-npm install
-npm run build
-cd ..
+echo "📦 Checking frontend build..."
+if [ ! -d "frontend/build" ]; then
+    echo "❌ ERROR: frontend/build/ not found!"
+    echo ""
+    echo "Please build frontend on your local machine first:"
+    echo "  cd frontend"
+    echo "  npm install"
+    echo "  npm run build"
+    echo "  cd .."
+    echo ""
+    echo "Then sync to server with the built files."
+    exit 1
+fi
+echo "✅ Frontend build found"
 
 # 3. Create logs directory
 echo ""
