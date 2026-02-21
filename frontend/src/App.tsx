@@ -186,8 +186,22 @@ function App() {
         <div className="chat-container">
           {messages.length === 0 && (
             <div className="welcome-screen">
-              <h2>Welcome! How can I help you find the right semiconductor?</h2>
-              <p>Click an example question on the left to get started, or type your own query below.</p>
+              <h2>Welcome to TI Product Finder!</h2>
+              <p>
+                Explore TI's semiconductor portfolio at{' '}
+                <a
+                  href="https://www.ti.com/product-category/overview.html"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#0066cc', textDecoration: 'underline' }}
+                >
+                  ti.com/product-category
+                </a>
+                {' '}or ask me any question below.
+              </p>
+              <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', opacity: 0.8 }}>
+                Click an example question on the left to get started, or type your own query.
+              </p>
             </div>
           )}
 
