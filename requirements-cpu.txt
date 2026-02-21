@@ -19,7 +19,7 @@ langchain==0.3.13
 langchain-openai==0.2.14
 langchain-core==0.3.28
 langchain-google-genai==2.0.8
-openai==1.54.0
+openai==1.58.1
 
 # Vector Database
 chromadb==0.5.15
