@@ -3,7 +3,10 @@ from typing import TypedDict, Annotated, Sequence, List, Dict, Any
 import operator
 from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
-from langchain_google_genai import ChatGoogleGenerativeAI
+try:
+    from langchain_google_genai import ChatGoogleGenerativeAI
+except ImportError:
+    ChatGoogleGenerativeAI = None
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
 import sys
@@ -27,7 +30,8 @@ from backend.agent.tools_extended import (
     find_cheaper_alternative_tool,
     check_lifecycle_status_tool,
     create_competitor_kill_sheet_tool,
-    synthesize_use_case_solution_tool
+    synthesize_use_case_solution_tool,
+    system_cost_analysis_tool
 )
 
 
@@ -377,6 +381,57 @@ def narrative_use_case_synthesis(
 
 
 @tool
+def system_cost_analysis(
+    system_description: str,
+    production_volume: int = 10000,
+    competitor_solution: Dict[str, Any] = None
+) -> str:
+    """
+    Comprehensive system-level cost analysis for all-TI solution vs competitor/mixed-vendor.
+    Use this when user asks about system-level cost, TCO, or justifying all-TI approach.
+
+    This tool analyzes complete TI solutions (MCU + wireless + power + interface) and provides:
+    - BOM breakdown for TI solution
+    - Comparison with competitor solution (if provided)
+    - NRE costs (development, support, testing, training)
+    - 3-year Total Cost of Ownership (TCO)
+    - Strategic advantages (unified IDE, single vendor support, supply chain)
+    - Risk mitigation analysis
+    - Executive summary with recommendations
+
+    Args:
+        system_description: Description of the system/application requirements
+                           (e.g., "industrial IoT gateway with CAN-FD and WiFi")
+        production_volume: Expected annual production volume (default: 10000)
+        competitor_solution: Optional dict with competitor parts and pricing
+            Example: {
+                "mcu": {"part": "STM32L476", "price": 3.50},
+                "wireless": {"part": "nRF52840", "price": 2.80},
+                "power": {"part": "TPS62xxx", "price": 0.65}
+            }
+
+    Returns:
+        Comprehensive cost analysis with TCO, BOM breakdown, and business justification
+
+    Examples:
+        system_cost_analysis("battery-powered BLE temperature sensor", production_volume=50000)
+        system_cost_analysis(
+            "industrial IoT gateway with CAN-FD and WiFi",
+            production_volume=25000,
+            competitor_solution={
+                "mcu": {"part": "STM32L476", "price": 3.50},
+                "wireless": {"part": "ESP32", "price": 2.00}
+            }
+        )
+    """
+    return system_cost_analysis_tool(
+        system_description=system_description,
+        production_volume=production_volume,
+        competitor_solution=competitor_solution
+    )
+
+
+@tool
 def smart_component_search(
     component_type: str,
     query: str,
@@ -571,12 +626,21 @@ SYSTEM_PROMPT = """You are an expert semiconductor product recommendation agent 
 - `get_part_info(part_number)` - Single part lookup
 - `compare_parts(part_numbers)` - Compare 2-3 specific parts
 - `find_parts_by_specs(...)` - Search by exact specs (flash, RAM, package, price)
+- `system_cost_analysis(system_description, production_volume, competitor_solution)` - System-level TCO analysis for all-TI solutions vs mixed-vendor/competitor. Use when user asks about: cost justification for using all TI chips, TCO analysis, development cost savings, BOM analysis for complete systems, comparing TI solution to mixed-vendor approach
 
 **COMPETITIVE ANALYSIS:**
 When comparing TI to competitors (STM32, nRF, etc.):
 - Use `create_competitor_kill_sheet` tool - it returns formatted tables
 - Preserve table formatting (don't rewrite as plain text)
 - Include: specs comparison, advantages, TCO if volume specified
+
+**SYSTEM-LEVEL COST ANALYSIS:**
+When user asks about complete system costs, TCO, or justifying all-TI approach:
+- Use `system_cost_analysis` tool for comprehensive analysis
+- Provide BOM breakdown, NRE costs, 3-year TCO
+- Highlight strategic advantages: unified development tools, single vendor support, supply chain benefits
+- Compare against mixed-vendor or competitor solutions if mentioned
+- Include production volume in analysis (ask user if not specified)
 
 Remember: Search FIRST, then recommend. Engineers want solutions fast.
 """
@@ -606,6 +670,8 @@ class SemiconductorAgent:
             print(f"[Agent] Using DeepSeek model: {settings.deepseek_model}")
             print(f"[Agent] DeepSeek base URL: {settings.deepseek_base_url}")
         elif settings.llm_provider == "google":
+            if ChatGoogleGenerativeAI is None:
+                raise ImportError("langchain_google_genai not installed. Install with: pip install langchain-google-genai")
             self.llm = ChatGoogleGenerativeAI(
                 model=settings.google_model,
                 temperature=0.1,
@@ -617,8 +683,10 @@ class SemiconductorAgent:
                 model=settings.openai_model,
                 temperature=0.1,
                 api_key=settings.openai_api_key
+                # Note: Prompt caching is automatic - no special config needed!
             )
             print(f"[Agent] Using OpenAI model: {settings.openai_model}")
+            print(f"[Agent] ✅ Prompt caching enabled (automatic for GPT-4o/GPT-4o-mini)")
 
         # Bind tools to LLM
         self.tools = [
@@ -635,7 +703,8 @@ class SemiconductorAgent:
             find_cheaper_alternative,
             check_lifecycle_status,
             competitor_kill_sheet,
-            narrative_use_case_synthesis
+            narrative_use_case_synthesis,
+            system_cost_analysis  # System-level TCO analysis
         ]
 
         # Bind tools to LLM
@@ -836,6 +905,19 @@ class SemiconductorAgent:
         response = self.llm_with_tools.invoke(messages_with_system)
         print(f"[DEBUG] LLM response received. Tool calls: {len(response.tool_calls) if response.tool_calls else 0}")
 
+        # Log cache statistics (OpenAI provides this in response metadata)
+        if hasattr(response, 'response_metadata') and settings.llm_provider == "openai":
+            usage = response.response_metadata.get('token_usage', {})
+            if usage:
+                prompt_tokens = usage.get('prompt_tokens', 0)
+                cached_tokens = usage.get('prompt_tokens_details', {}).get('cached_tokens', 0)
+                if cached_tokens > 0:
+                    cache_pct = (cached_tokens / prompt_tokens * 100) if prompt_tokens > 0 else 0
+                    savings = cached_tokens * 0.5  # 50% discount on cached tokens
+                    print(f"[CACHE] 💰 {cached_tokens:,} tokens cached ({cache_pct:.1f}%) - Saved ~${savings * 0.15 / 1000:.4f}")
+                else:
+                    print(f"[CACHE] ℹ️  No cache hit (first query or cache expired)")
+
         # If tools were called, execute them
         new_messages = [response]
         tool_executions = state.get("tool_executions", [])
@@ -981,6 +1063,18 @@ Before recommending ANY part number, CHECK if it appeared in the ToolMessage res
                 response = self.llm.invoke(messages_with_system)
 
             print(f"[DEBUG] Final response generated, length: {len(response.content)}")
+
+            # Log cache statistics for final response
+            if hasattr(response, 'response_metadata') and settings.llm_provider == "openai":
+                usage = response.response_metadata.get('token_usage', {})
+                if usage:
+                    prompt_tokens = usage.get('prompt_tokens', 0)
+                    cached_tokens = usage.get('prompt_tokens_details', {}).get('cached_tokens', 0)
+                    if cached_tokens > 0:
+                        cache_pct = (cached_tokens / prompt_tokens * 100) if prompt_tokens > 0 else 0
+                        savings = cached_tokens * 0.5  # 50% discount on cached tokens
+                        print(f"[CACHE] 💰 Final response - {cached_tokens:,} tokens cached ({cache_pct:.1f}%) - Saved ~${savings * 0.15 / 1000:.4f}")
+
             return {
                 "final_response": response.content,
                 "messages": [response]

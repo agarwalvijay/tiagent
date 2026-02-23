@@ -73,6 +73,11 @@ function App() {
   };
 
   const exampleQueries = {
+    "💰 System Cost & TCO Analysis": [
+      "Provide a complete system-level cost analysis for a battery-powered BLE temperature sensor at 50,000 units/year. Justify why using all-TI chips is better from both development and cost perspectives.",
+      "I'm using STM32L476 + nRF52840 + TPS62xxx for an industrial IoT gateway (25,000 units/year). Show me an all-TI solution with TCO analysis and development time savings.",
+      "Analyze the total cost of ownership for a complete TI solution (MCU + wireless + power) versus a mixed-vendor approach for a smart thermostat at 100,000 units/year."
+    ],
     "🏭 System-Level Solutions": [
       "I'm building an industrial IoT gateway that needs real-time processing, CAN-FD communication, wireless connectivity, and battery backup. What TI components should I use?",
       "Design a solar-powered air quality monitoring station that runs on coin cell + solar, measures multiple sensors, sends data via LoRaWAN every 10 minutes, and must last 5+ years. What's the complete TI solution?",
