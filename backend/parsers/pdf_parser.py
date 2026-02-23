@@ -173,7 +173,8 @@ class TIDatasheetParser:
             print(f"  ℹ️  Using document ID as part number: {metadata.document_id}")
 
         # Always extract from PDF first (some fields not in CSV)
-        metadata.device_type = self._extract_device_type(first_pages_text)
+        # Pass part_numbers to device_type extraction for accurate prefix matching
+        metadata.device_type = self._extract_device_type(first_pages_text, metadata.part_numbers)
         metadata.architecture = self._extract_architecture(first_pages_text)
         metadata.core_freq_mhz = self._extract_frequency(first_pages_text)
         metadata.flash_kb, metadata.ram_kb = self._extract_memory(first_pages_text)
@@ -369,15 +370,19 @@ class TIDatasheetParser:
 
         return list(part_numbers)[:15]  # Limit to 15 to catch variant families
 
-    def _extract_device_type(self, text: str) -> Optional[str]:
+    def _extract_device_type(self, text: str, part_numbers: List[str] = None) -> Optional[str]:
         """
         Extract device type with improved classification.
         Uses part number patterns and text analysis for accurate categorization.
+
+        Args:
+            text: Text from the datasheet to analyze
+            part_numbers: List of part numbers for prefix-based classification
         """
         text_lower = text.lower()
 
         # First, check part numbers for strong classification signals
-        part_numbers = self.metadata.part_numbers if self.metadata else []
+        part_numbers = part_numbers or []
         part_prefix = part_numbers[0][:3].upper() if part_numbers else ""
 
         # PRIORITY 1: Check part number prefixes FIRST (most reliable classification)
